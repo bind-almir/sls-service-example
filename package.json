@@ -1,0 +1,29 @@
+{
+  "name": "sls-service-example",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "devDependencies": {
+    "aws-sdk": "^2.1071.0",
+    "jest": "27.0.6",
+    "js-yaml": "4.1.0",
+    "serverless": "^2.72.2",
+    "serverless-deployment-bucket": "^1.5.2",
+    "serverless-dynamodb-local": "^0.2.40",
+    "serverless-offline": "^8.4.0"
+  },
+  "scripts": {
+    "setup:dynamodb": "node create-tables-locally.js",
+    "up": "docker-compose up -d",
+    "postup": "npm run setup:dynamodb",
+    "down": "docker-compose down",
+    "pretest": "npm run up",
+    "test": "jest --passWithNoTests",
+    "posttest": "npm run down",
+    "pretest:watch": "npm run up",
+    "test:watch": "jest --watch"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}

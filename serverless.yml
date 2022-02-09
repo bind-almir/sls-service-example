@@ -1,0 +1,103 @@
+service: sls-service-example
+
+frameworkVersion: '2'
+
+provider: 
+  name: aws
+  runtime: nodejs14.x
+  stage: ${opt:stage,'dev'} # default stage is dev unless you pass stage argument
+  region: ${opt:region,'us-east-1'} # default region is us-east-1 unless you pass region argument
+  lambdaHashingVersion: 20201221
+  deploymentBucket:
+    name: "${self:custom.deploymentBucketName}"
+    serverSideEncryption: AES256 
+
+  tracing:
+    apiGateway: true  # turn on x-ray tracing default is false
+  # thse environment variables are available for all functions
+  # it is possible to set env per function
+  iam:
+    role: 
+      managedPolicies: 
+        - arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess
+  environment:
+    AWS_NODEJS_CONNECTION_REUSE_ENABLED: 1
+    # https://docs.aws.amazon.com/sdk-for-javascript/v2/developer-guide/node-reusing-connections.html
+    REGION: "${self:provider.region}"
+    STAGE: "${self:provider.stage}"  
+    DYNAMODB_TABLE: !Ref ExampleDynamoDBTable
+    # check resources.yml
+  logs:
+    restApi: false
+
+custom:
+  deploymentBucketName: ${self:provider.stage}-sls-service-example-deployment
+  serverless-offline-sqs:
+    autoCreate: true                 # create queue if not exists
+    apiVersion: '2012-11-05'
+    endpoint: http://0.0.0.0:9324
+    region: eu-west-1
+    accessKeyId: root
+    secretAccessKey: root
+    skipCacheInvalidation: false
+
+
+plugins:
+  - serverless-dynamodb-local
+  - serverless-offline
+  - serverless-deployment-bucket
+
+functions:
+
+  get-something:
+    handler: functions/get.handler
+    events:
+      - http:
+          path: /something/{pk}/{sk}
+          method: get
+          cors: true
+
+  post-something:
+    handler: functions/post.handler
+    events:
+      - http:
+          path: /something
+          method: post
+          cors: true
+
+  sqs:
+    handler: functions/sqs.handler
+    events:
+      - sqs:
+          arn:
+            Fn::GetAtt:
+              - ExampleQueue
+              - Arn
+
+# cloudformation resources
+resources:
+  Resources:
+
+    ExampleDynamoDBTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: sls-service-example-${self:provider.stage}
+        # table per stage
+        SSESpecification:
+          SSEEnabled: true
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: pk
+            AttributeType: S
+          - AttributeName: sk
+            AttributeType: S
+        KeySchema:
+          - AttributeName: pk
+            KeyType: HASH
+          - AttributeName: sk
+            KeyType: RANGE
+
+    ExampleQueue:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: ExampleQueue-${self:provider.stage}
